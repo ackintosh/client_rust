@@ -1,4 +1,4 @@
-#![forbid(unsafe_code)]
+// #![forbid(unsafe_code)]
 #![deny(unused)]
 #![deny(dead_code)]
 #![warn(missing_debug_implementations)]

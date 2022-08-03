@@ -460,6 +460,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::alloc::{GlobalAlloc, Layout, System};
     use super::*;
     use crate::metrics::counter::Counter;
     use crate::metrics::exemplar::{CounterWithExemplar, HistogramWithExemplars};
@@ -469,10 +470,31 @@ mod tests {
     use crate::metrics::info::Info;
     use crate::registry::Unit;
     use std::borrow::Cow;
-    use std::sync::atomic::AtomicI64;
+    use std::sync::atomic::{AtomicI64, AtomicUsize};
+    use std::sync::atomic::Ordering::SeqCst;
+
+    struct CheckAlloc;
+
+    static ALLOCATED: AtomicUsize = AtomicUsize::new(0);
+
+    unsafe impl GlobalAlloc for CheckAlloc {
+        unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+            ALLOCATED.fetch_add(1, SeqCst);
+            System.alloc(layout)
+        }
+
+        unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+            System.dealloc(ptr, layout);
+        }
+    }
+
+    #[global_allocator]
+    static A: CheckAlloc = CheckAlloc;
 
     #[test]
     fn encode_counter_int() {
+        let before =  ALLOCATED.load(SeqCst);
+
         let counter: Counter = Counter::default();
         let mut registry = Registry::default();
         registry.register("my_counter", "My counter", counter.clone());
@@ -498,6 +520,8 @@ mod tests {
             }
             _ => assert!(false, "wrong value type"),
         }
+
+        println!("allocation: {}", ALLOCATED.load(SeqCst) - before);
     }
 
     #[test]
@@ -661,6 +685,8 @@ mod tests {
 
     #[test]
     fn encode_counter_family_with_prefix_with_label() {
+        let before =  ALLOCATED.load(SeqCst);
+
         let mut registry = Registry::default();
         let sub_registry = registry.sub_registry_with_prefix("my_prefix");
         let sub_sub_registry = sub_registry
@@ -704,6 +730,7 @@ mod tests {
             }
             _ => assert!(false, "wrong value type"),
         }
+        println!("allocation: {}", ALLOCATED.load(SeqCst) - before);
     }
 
     #[test]
