@@ -37,7 +37,7 @@ use crate::metrics::gauge::Gauge;
 use crate::metrics::histogram::Histogram;
 use crate::metrics::info::Info;
 use crate::metrics::{counter, gauge, MetricType, TypedMetric};
-use crate::registry::Registry;
+use crate::registry::{IntoMetric, Registry};
 use std::collections::HashMap;
 use std::ops::Deref;
 use void::Void;
@@ -122,6 +122,14 @@ impl EncodeMetric for Box<dyn EncodeMetric> {
 pub trait SendEncodeMetric: EncodeMetric + Send {}
 
 impl<T: EncodeMetric + Send> SendEncodeMetric for T {}
+
+impl<M> IntoMetric for M where M: EncodeMetric + Send + Sync + 'static {
+    type Metric = Box<dyn SendEncodeMetric>;
+
+    fn into_metric(self) -> Self::Metric {
+        Box::new(self)
+    }
+}
 
 /// Trait to implement its label encoding in the OpenMetrics protobuf format.
 pub trait EncodeLabels {
