@@ -31,7 +31,7 @@ use crate::metrics::gauge::{self, Gauge};
 use crate::metrics::histogram::Histogram;
 use crate::metrics::info::Info;
 use crate::metrics::{MetricType, TypedMetric};
-use crate::registry::{Registry, Unit};
+use crate::registry::{IntoMetric, Registry, Unit};
 
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -402,6 +402,16 @@ impl EncodeMetric for Box<dyn EncodeMetric> {
     }
 }
 
+impl EncodeMetric for () {
+    fn encode(&self, _: Encoder) -> Result<(), std::io::Error> {
+        Ok(())
+    }
+
+    fn metric_type(&self) -> MetricType {
+        MetricType::Unknown
+    }
+}
+
 /// Trait combining [`EncodeMetric`], [`Send`] and [`Sync`].
 pub trait SendSyncEncodeMetric: EncodeMetric + Send + Sync {}
 
@@ -414,6 +424,14 @@ impl EncodeMetric for Box<dyn SendSyncEncodeMetric> {
 
     fn metric_type(&self) -> MetricType {
         self.deref().metric_type()
+    }
+}
+
+impl<M> IntoMetric for M where M: EncodeMetric + Send + Sync + 'static {
+    type Metric = Box<dyn SendSyncEncodeMetric>;
+
+    fn into_metric(self) -> Self::Metric {
+        Box::new(self)
     }
 }
 

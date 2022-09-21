@@ -76,6 +76,12 @@ impl<M> Default for Registry<M> {
     }
 }
 
+pub trait IntoMetric {
+    type Metric;
+
+    fn into_metric(self) -> Self::Metric;
+}
+
 impl<M> Registry<M> {
     /// Creates a new default [`Registry`] with the given prefix.
     pub fn with_prefix(prefix: impl Into<String>) -> Self {
@@ -108,8 +114,8 @@ impl<M> Registry<M> {
     ///
     /// registry.register("my_counter", "This is my counter", counter.clone());
     /// ```
-    pub fn register<N: Into<String>, H: Into<String>>(&mut self, name: N, help: H, metric: M) {
-        self.priv_register(name, help, metric, None)
+    pub fn register<N: Into<String>, H: Into<String>>(&mut self, name: N, help: H, metric: impl IntoMetric<Metric = M>) {
+        self.priv_register(name, help, metric.into_metric(), None)
     }
 
     /// Register a metric with the [`Registry`] specifying the metric's unit.
